@@ -8,11 +8,22 @@
 #then displays the orbit on a pygame window. The user is able 
 #to move the points of observation around and see the orbit change
 #in real time.
+
+#Resources: 
+#    https://math.stackexchange.com/questions/163920/how-to-find-an-ellipse-given-five-points 
+#    hhttps://numpy.org/doc/stable/reference/generated/numpy.linalg.det.html#numpy.linalg.det
+#
+
 #----------------------END DESCRIPTION------------------#
+
+
 
 import pygame as pg #For graphics
 import numpy as np
 import math as m
+import scipy.linalg as la
+from sympy import solve_poly_system
+from sympy.solvers.diophantine import diophantine
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -131,8 +142,33 @@ def computeBezierPoints(vertices, numPoints=None):
 
 
 
+
+def makeMatrix(points):
+    #x^2, xy, y^2, x, y, 1
+    matrix = np.zeros((5, 6))
+    for i in range(len(points)):
+        x = points[i][0]
+        y = points[i][1]
+        matrix[i][0] = x*x
+        matrix[i][1] = x*y
+        matrix[i][2] = y*y
+        matrix[i][3] = x
+        matrix[i][4] = y
+        matrix[i][5] = 1
+        
+    return matrix
+
+def printMatrix(matrix):
+    for i in range(len(matrix)):
+        for j in range(len(matrix[0])):
+            print(int(matrix[i][j]), end = " ")
+        print()
+    
+
 def simScreen():
     global SCREEN_WIDTH, SCREEN_HEIGHT, FPS, rectangle_draging
+    refreshMath = False
+    from sympy.abc import x, y
     
     while True:
     
@@ -148,12 +184,15 @@ def simScreen():
                             mouse_x, mouse_y = event.pos
                             offset_x = POINTS[i][0][0] - mouse_x
                             offset_y = POINTS[i][0][1] - mouse_y
+                            
+                            refreshMath = True
 
             elif event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:            
                     for i in range(len(POINTS)):
                         if POINTS[i][1]:
                             POINTS[i] = (POINTS[i][0], False)
+                            refreshMath = False
 
             elif event.type == pg.MOUSEMOTION:
                 for i in range(len(POINTS)):
@@ -171,6 +210,28 @@ def simScreen():
         # b_points = computeBezierPoints(controlPoints, 100)
         # pg.draw.lines(screen, BLUE, False, b_points, 2)
         
+        controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
+        if refreshMath:
+            m = makeMatrix(controlPoints)
+            printMatrix(m)
+            dets = la.null_space(m)
+            print(dets)
+            
+            #Round dets for better display
+            dets = [int(det[0]*100000000) for det in dets]
+            
+            equation = str(dets[0]) + "*x*x + " + str(dets[1]) + "*x*y + " + str(dets[2]) + "*y*y + " + str(dets[3]) + "*x + " + str(dets[4]) + "*y + " + str(dets[5])
+            print(equation)
+                
+            # ans = diophantine(dets[0]*x*x + dets[1]*x*y + dets[1]*y*y + dets[3]*x + dets[4]*y + dets[5])
+            ans = diophantine(5*x*x + 2*x*y + 6*y*y + 2*x + 8*y + 1)
+            # ans = solve_poly_system([dets[0]*x*x + dets[1]*x*y + dets[1]*y*y + dets[3]*x + dets[4]*y + dets[5], 0], x, y)
+            print(ans)
+            
+            # x = Symbol('x')
+            # y = Symbol('y')
+            # ans = solve(equation, x, y)
+            # print(ans)
         
         
         for i in range(len(POINTS)):
