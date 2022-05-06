@@ -11,19 +11,17 @@
 
 #Resources: 
 #    https://math.stackexchange.com/questions/163920/how-to-find-an-ellipse-given-five-points 
-#    hhttps://numpy.org/doc/stable/reference/generated/numpy.linalg.det.html#numpy.linalg.det
-#
+#    https://numpy.org/doc/stable/reference/generated/numpy.linalg.det.html#numpy.linalg.det
+#    https://en.wikipedia.org/wiki/Matrix_representation_of_conic_sections#Central_conics
 
 #----------------------END DESCRIPTION------------------#
 
 
-
 import pygame as pg #For graphics
+import pygame.freetype  # Import the freetype module.
 import numpy as np
-import math as m
+import math
 import scipy.linalg as la
-from sympy import solve_poly_system
-from sympy.solvers.diophantine import diophantine
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -43,12 +41,18 @@ FPS = 60 #Standard Smooth FPS
 POINT_RADIUS = 10 #Pixels
 POINTS = [
     #(xCoordinate, yCoordinate), currentlyBeingDragged
-    ((10, 10), False), 
-    ((30, 10), False),
-    ((50, 20), False),
-    ((20, 40), False),
-    ((70, 20), False),
+    ((785, 232), False), 
+    ((368, 131), False),
+    ((198, 324), False),
+    ((508, 581), False),
+    ((1075, 630), False),
 ]
+
+DRAW_WEB = True
+DRAW_BEIZER = False
+DRAW_ELLIPSE = True
+DRAW_FILL = False
+DRAW_MATRIX = False
 
 
 def quitSimulation(): #Quits Pygame and Python
@@ -165,13 +169,25 @@ def printMatrix(matrix):
         print()
     
 
+def draw_ellipse_angle(surface, color, rect, angle, width=0):
+    target_rect = pygame.Rect(rect)
+    shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
+    pygame.draw.ellipse(shape_surf, color, (0, 0, *target_rect.size), width=1)
+    rotated_surf = pygame.transform.rotate(shape_surf, angle)
+    surface.blit(rotated_surf, rotated_surf.get_rect(center = target_rect.center))
+
+
 def simScreen():
     global SCREEN_WIDTH, SCREEN_HEIGHT, FPS, rectangle_draging
     refreshMath = False
-    from sympy.abc import x, y
+    
+    #First time math
+    controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
+    matrix = makeMatrix(controlPoints)
+    null_space_coeffiecients = la.null_space(matrix)
+    
     
     while True:
-    
         events = pg.event.get()
         backgroundInputCheck(events)
         for event in events:
@@ -203,57 +219,96 @@ def simScreen():
         #Draw on Screen
         screen.fill(BLACK) #Paint the whole screen black
         
-        controlPoints = [(point[0][0], point[0][1]) for point in POINTS] + [(POINTS[0][0][0], POINTS[0][0][1])]
-        pg.draw.lines(screen, GRAY, False, controlPoints)
+        if DRAW_WEB:
+            controlPoints = [(point[0][0], point[0][1]) for point in POINTS] + [(POINTS[0][0][0], POINTS[0][0][1])]
+            pg.draw.lines(screen, GRAY, False, controlPoints)
 
-        ### Draw bezier curve
-        # b_points = computeBezierPoints(controlPoints, 100)
-        # pg.draw.lines(screen, BLUE, False, b_points, 2)
+        if DRAW_BEIZER:
+            b_points = computeBezierPoints(controlPoints, 100)
+            pg.draw.lines(screen, BLUE, False, b_points, 2)
         
-        controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
+        
         if refreshMath:
-            m = makeMatrix(controlPoints)
-            printMatrix(m)
-            dets = la.null_space(m)
-            print(dets)
-            
-            #Round dets for better display
-            dets = [int(det[0]*100000000) for det in dets]
-            
-            equation = str(dets[0]) + "*x*x + " + str(dets[1]) + "*x*y + " + str(dets[2]) + "*y*y + " + str(dets[3]) + "*x + " + str(dets[4]) + "*y + " + str(dets[5])
-            print(equation)
+            controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
+            matrix = makeMatrix(controlPoints)
+            printMatrix(matrix)
+            null_space_coeffiecients = la.null_space(matrix)
+            print(null_space_coeffiecients)
+            A, B, C, D, E, F = null_space_coeffiecients
+        
+            #Daniel
+            #code the equations
+            try:
+                determinant = (B**2) - 4 * A * C
+                center_x = (((2 * C * D) - (B * E)) / determinant)[0]
+                center_y = (((2 * A * E) - (B * D)) / determinant)[0]
                 
-            # ans = diophantine(dets[0]*x*x + dets[1]*x*y + dets[1]*y*y + dets[3]*x + dets[4]*y + dets[5])
-            ans = diophantine(5*x*x + 2*x*y + 6*y*y + 2*x + 8*y + 1)
-            # ans = solve_poly_system([dets[0]*x*x + dets[1]*x*y + dets[1]*y*y + dets[3]*x + dets[4]*y + dets[5], 0], x, y)
-            print(ans)
+                if B != 0:
+                    rot_angle = math.atan((C - A - math.sqrt((A - C)**2 + B**2) / B))
+                elif A > C:
+                    rot_angle = 90
+                else:
+                    rot_angle = 0
+                rot_angle = rot_angle * 180 / math.pi
+                
+                comp_1 = (2 * (A * E**2 + C * D**2 - B * D * E + determinant * F))[0]
+                comp_2 = ((A + C) + math.sqrt((A - C)**2 + B**2))[0]
+                comp_3 = ((A + C) - math.sqrt((A - C)**2 + B**2))[0]
+                dims = [(-math.sqrt(comp_1 * comp_2) / determinant)[0], (-math.sqrt(comp_1 * comp_3) / determinant)[0]]
+                semi_major = max(dims)
+                semi_minor = min(dims)
+                
+                if DRAW_ELLIPSE:
+                    draw_ellipse_angle(screen, BLUE, (center_x - semi_minor, center_y - semi_major, 2 * semi_minor, 2 * semi_major), -rot_angle)
+                    
+                    #draw line y = x
+                    pg.draw.line(screen, RED, (0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), 1)
+                    
+            except:
+                print("Error")
             
-            # x = Symbol('x')
-            # y = Symbol('y')
-            # ans = solve(equation, x, y)
-            # print(ans)
+            
+            # #Round dets for better display
+            # dets = [int(det[0]*100000000) for det in dets] #not sure what this does honestly
+            
+            # equation = str(dets[0]) + "*x*x + " + str(dets[1]) + "*x*y + " + str(dets[2]) + "*y*y + " + str(dets[3]) + "*x + " + str(dets[4]) + "*y + " + str(dets[5])
+            # print(equation)
+            
+            
+        if DRAW_FILL:
+            null_space_coeffiecients = [int(det*100000000) for det in null_space_coeffiecients]
+            for num_x in range(0, SCREEN_WIDTH, 10):
+                for num_y in range(0, SCREEN_HEIGHT, 10):
+                    if null_space_coeffiecients[0]*num_x*num_x + null_space_coeffiecients[1]*num_x*num_y + null_space_coeffiecients[2]*num_y*num_y + null_space_coeffiecients[3]*num_x + null_space_coeffiecients[4]*num_y + null_space_coeffiecients[5] < 100:
+                        pg.draw.circle(screen, RED, (num_x, num_y), 1)
+            
+        if DRAW_MATRIX:
+            y = SCREEN_HEIGHT - 150
+            for item in matrix:
+                SIM_FONT.render_to(screen, (40, y), " ".join(str(int(item)) for item in item), WHITE)
+                y += 30
         
         
         for i in range(len(POINTS)):
-            pg.draw.circle(screen, RED, POINTS[i][0], POINT_RADIUS)
+            if POINTS[i][1]: #currently being dragged
+                pg.draw.circle(screen, PURPLE, POINTS[i][0], POINT_RADIUS)
+            else:
+                pg.draw.circle(screen, RED, POINTS[i][0], POINT_RADIUS)
+                        
         
         # currentInterval += 1
         backgroundInputCheck(pg.event.get())
         clock.tick(FPS)
         pg.display.flip()
+        print("Running")
         
-
-
-#splines for each planet
-
-#draw matrix in bottom left corner
-
-#draw equation
-
 
 pg.init()
 pg.display.set_icon(CELESTIAL_OBJECT)
 screen = pg.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
 pg.display.set_caption("Linear Algebra - OrbitTrack Display")
 clock = pg.time.Clock()
+
+SIM_FONT = pygame.freetype.Font("./Pygame/Avenir Next.ttc", 16)
+
 simScreen()
