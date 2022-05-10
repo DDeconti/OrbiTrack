@@ -17,6 +17,8 @@
 #----------------------END DESCRIPTION------------------#
 
 
+from cmath import pi
+from pickle import TRUE
 import pygame as pg #For graphics
 import pygame.freetype  # Import the freetype module.
 import numpy as np
@@ -39,6 +41,11 @@ SCREEN_HEIGHT = 800
 FPS = 60 #Standard Smooth FPS
 
 POINT_RADIUS = 10 #Pixels
+
+
+
+
+
 POINTS = [
     #(xCoordinate, yCoordinate), currentlyBeingDragged
     ((785, 232), False), 
@@ -48,11 +55,21 @@ POINTS = [
     ((1075, 630), False),
 ]
 
+# POINTS = [
+#     #(xCoordinate, yCoordinate), currentlyBeingDragged
+#     ((-100, 100), False), 
+#     ((0, 100), False),
+#     ((100, 0), False),
+#     ((0, -100), False),
+#     ((-100, 0), False),
+# ]
+
 DRAW_WEB = True
 DRAW_BEIZER = False
 DRAW_ELLIPSE = True
 DRAW_FILL = False
-DRAW_MATRIX = False
+DRAW_MATRIX = True
+DRAW_EQUATION = True
 
 
 def quitSimulation(): #Quits Pygame and Python
@@ -169,12 +186,12 @@ def printMatrix(matrix):
         print()
     
 
-def draw_ellipse_angle(surface, color, rect, angle, width=0):
+def drawRotatedEllipse(surface, color, rect, angle, center, width=0):
     target_rect = pygame.Rect(rect)
     shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
     pygame.draw.ellipse(shape_surf, color, (0, 0, *target_rect.size), width=1)
     rotated_surf = pygame.transform.rotate(shape_surf, angle)
-    surface.blit(rotated_surf, rotated_surf.get_rect(center = target_rect.center))
+    surface.blit(rotated_surf, rotated_surf.get_rect(center = center))
 
 
 def simScreen():
@@ -186,6 +203,13 @@ def simScreen():
     matrix = makeMatrix(controlPoints)
     null_space_coeffiecients = la.null_space(matrix)
     
+    a = 0
+    b = 0
+    rot_angle = 0
+    h = 0
+    k = 0
+
+    firstLoop = True
     
     while True:
         events = pg.event.get()
@@ -228,7 +252,8 @@ def simScreen():
             pg.draw.lines(screen, BLUE, False, b_points, 2)
         
         
-        if refreshMath:
+        if refreshMath or firstLoop:
+            firstLoop = False
             controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
             matrix = makeMatrix(controlPoints)
             printMatrix(matrix)
@@ -243,50 +268,74 @@ def simScreen():
                 center_x = (((2 * C * D) - (B * E)) / determinant)[0]
                 center_y = (((2 * A * E) - (B * D)) / determinant)[0]
                 
-                if B != 0:
-                    rot_angle = math.atan((C - A - math.sqrt((A - C)**2 + B**2) / B))
-                elif A > C:
-                    rot_angle = 90
-                else:
-                    rot_angle = 0
-                rot_angle = rot_angle * 180 / math.pi
                 
-                comp_1 = (2 * (A * E**2 + C * D**2 - B * D * E + determinant * F))[0]
+                comp_1 = (2 * ((A * E**2) + (C * D**2) - (B * D * E) + determinant * F))[0]
                 comp_2 = ((A + C) + math.sqrt((A - C)**2 + B**2))[0]
                 comp_3 = ((A + C) - math.sqrt((A - C)**2 + B**2))[0]
                 dims = [(-math.sqrt(comp_1 * comp_2) / determinant)[0], (-math.sqrt(comp_1 * comp_3) / determinant)[0]]
                 semi_major = max(dims)
                 semi_minor = min(dims)
                 
-                if DRAW_ELLIPSE:
-                    draw_ellipse_angle(screen, BLUE, (center_x - semi_minor, center_y - semi_major, 2 * semi_minor, 2 * semi_major), -rot_angle)
+                
+                #cot(2𝛼)=(𝐴−𝐶/𝐵)
+                right = (A-C) / B
+                #cot(2a)=(𝐴−𝐶/𝐵)
+                
+                
+                this_a = np.arctan(1/right)/2
+                print(this_a)
+                rot_angle = 90 - (this_a * 180 / math.pi)
+                
+                # if B != 0:
+                #     rot_angle = math.atan((C[0] - A[0] - math.sqrt((A[0] - C[0])**2 + B[0]**2) / B[0]))
+                #     rot_angle = rot_angle * 180 / math.pi
+                # elif A > C:
+                #     rot_angle = 90
+                # else:
+                #     rot_angle = 0
                     
-                    #draw line y = x
-                    pg.draw.line(screen, RED, (0, 0), (SCREEN_WIDTH, SCREEN_HEIGHT), 1)
                     
             except:
                 print("Error")
             
+        
+        if DRAW_ELLIPSE:
+            drawRotatedEllipse(screen, BLUE, (0, 0, 2 * semi_minor, 2 * semi_major), rot_angle, (center_x, center_y))
             
-            # #Round dets for better display
-            # dets = [int(det[0]*100000000) for det in dets] #not sure what this does honestly
-            
-            # equation = str(dets[0]) + "*x*x + " + str(dets[1]) + "*x*y + " + str(dets[2]) + "*y*y + " + str(dets[3]) + "*x + " + str(dets[4]) + "*y + " + str(dets[5])
-            # print(equation)
-            
+            #also draw the center
+            # pg.draw.circle(screen, RED, (int(center_x), int(center_y)), 5)
+        
             
         if DRAW_FILL:
-            null_space_coeffiecients = [int(det*100000000) for det in null_space_coeffiecients]
+            coeffiecients = [int(det*100000000) for det in null_space_coeffiecients]
             for num_x in range(0, SCREEN_WIDTH, 10):
                 for num_y in range(0, SCREEN_HEIGHT, 10):
-                    if null_space_coeffiecients[0]*num_x*num_x + null_space_coeffiecients[1]*num_x*num_y + null_space_coeffiecients[2]*num_y*num_y + null_space_coeffiecients[3]*num_x + null_space_coeffiecients[4]*num_y + null_space_coeffiecients[5] < 100:
+                    if coeffiecients[0]*num_x*num_x + coeffiecients[1]*num_x*num_y + coeffiecients[2]*num_y*num_y + coeffiecients[3]*num_x + coeffiecients[4]*num_y + coeffiecients[5] < 100:
                         pg.draw.circle(screen, RED, (num_x, num_y), 1)
             
         if DRAW_MATRIX:
             y = SCREEN_HEIGHT - 150
             for item in matrix:
-                SIM_FONT.render_to(screen, (40, y), " ".join(str(int(item)) for item in item), WHITE)
+                x = 40
+                for num in item:
+                    SIM_FONT.render_to(screen, (x, y), str(int(num)), WHITE)
+                    x += 80
                 y += 30
+                
+        if DRAW_EQUATION:
+            DISP_A, DISP_B, DISP_C, DISP_D, DISP_E, DISP_F = null_space_coeffiecients
+            
+            #format the decimals of A, B, C, D, E, F to be to 3 decimal places
+            ammount_round = 5
+            DISP_A = round(DISP_A[0], ammount_round)
+            DISP_B = round(DISP_B[0], ammount_round)
+            DISP_C = round(DISP_C[0], ammount_round)
+            DISP_D = round(DISP_D[0], ammount_round)
+            DISP_E = round(DISP_E[0], ammount_round)
+            DISP_F = round(DISP_F[0], ammount_round)
+            
+            equation = str(DISP_A) + "*x*x + " + str(DISP_B) + "*x*y + " + str(DISP_C) + "*y*y + " + str(DISP_D) + "*x + " + str(DISP_E) + "*y + " + str(DISP_F)
+            SIM_FONT.render_to(screen, (40, 15), equation, WHITE)
         
         
         for i in range(len(POINTS)):
@@ -294,13 +343,15 @@ def simScreen():
                 pg.draw.circle(screen, PURPLE, POINTS[i][0], POINT_RADIUS)
             else:
                 pg.draw.circle(screen, RED, POINTS[i][0], POINT_RADIUS)
+                
+                
+
                         
         
         # currentInterval += 1
         backgroundInputCheck(pg.event.get())
         clock.tick(FPS)
         pg.display.flip()
-        print("Running")
         
 
 pg.init()
