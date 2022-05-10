@@ -35,16 +35,13 @@ RED = (225, 50, 50)
 GRAY = (50, 50, 50)
 
 CELESTIAL_OBJECT = pg.image.load('./Pygame/Earth.png')
+CELESTIAL_OBJECT = pg.transform.scale(CELESTIAL_OBJECT, (76, 76))
 
 SCREEN_WIDTH = 1440
 SCREEN_HEIGHT = 800
 FPS = 60 #Standard Smooth FPS
 
 POINT_RADIUS = 10 #Pixels
-
-
-
-
 
 POINTS = [
     #(xCoordinate, yCoordinate), currentlyBeingDragged
@@ -55,21 +52,12 @@ POINTS = [
     ((1075, 630), False),
 ]
 
-# POINTS = [
-#     #(xCoordinate, yCoordinate), currentlyBeingDragged
-#     ((-100, 100), False), 
-#     ((0, 100), False),
-#     ((100, 0), False),
-#     ((0, -100), False),
-#     ((-100, 0), False),
-# ]
-
 DRAW_WEB = True
-DRAW_BEIZER = False
-DRAW_ELLIPSE = True
+DRAW_ORBIT = True
 DRAW_FILL = False
 DRAW_MATRIX = True
 DRAW_EQUATION = True
+DRAW_PLANET = True
 
 
 def quitSimulation(): #Quits Pygame and Python
@@ -92,76 +80,6 @@ def pointAlreadyDragging():
     for point in POINTS:
         if point[1]:
             return True
-
-
-def computeBezierPoints(vertices, numPoints=None):
-    if numPoints is None:
-        numPoints = 30
-    # if numPoints &lt; 2 or len(vertices) != 4:
-    #     return None
-
-    result = []
-
-    b0x = vertices[0][0]
-    b0y = vertices[0][1]
-    b1x = vertices[1][0]
-    b1y = vertices[1][1]
-    b2x = vertices[2][0]
-    b2y = vertices[2][1]
-    b3x = vertices[3][0]
-    b3y = vertices[3][1]
-
-
-
-    # Compute polynomial coefficients from Bezier points
-    ax = -b0x + 3 * b1x + -3 * b2x + b3x
-    ay = -b0y + 3 * b1y + -3 * b2y + b3y
-
-    bx = 3 * b0x + -6 * b1x + 3 * b2x
-    by = 3 * b0y + -6 * b1y + 3 * b2y
-
-    cx = -3 * b0x + 3 * b1x
-    cy = -3 * b0y + 3 * b1y
-
-    dx = b0x
-    dy = b0y
-
-    # Set up the number of steps and step size
-    numSteps = numPoints - 1 # arbitrary choice
-    h = 1.0 / numSteps # compute our step size
-
-    # Compute forward differences from Bezier points and "h"
-    pointX = dx
-    pointY = dy
-
-    firstFDX = ax * (h * h * h) + bx * (h * h) + cx * h
-    firstFDY = ay * (h * h * h) + by * (h * h) + cy * h
-
-
-    secondFDX = 6 * ax * (h * h * h) + 2 * bx * (h * h)
-    secondFDY = 6 * ay * (h * h * h) + 2 * by * (h * h)
-
-    thirdFDX = 6 * ax * (h * h * h)
-    thirdFDY = 6 * ay * (h * h * h)
-
-    # Compute points at each step
-    result.append((int(pointX), int(pointY)))
-
-    for i in range(numSteps):
-        pointX += firstFDX
-        pointY += firstFDY
-
-        firstFDX += secondFDX
-        firstFDY += secondFDY
-
-        secondFDX += thirdFDX
-        secondFDY += thirdFDY
-
-        result.append((int(pointX), int(pointY)))
-
-    return result
-
-
 
 
 def makeMatrix(points):
@@ -194,21 +112,17 @@ def drawRotatedEllipse(surface, color, rect, angle, center, width=0):
     surface.blit(rotated_surf, rotated_surf.get_rect(center = center))
 
 
+
 def simScreen():
     global SCREEN_WIDTH, SCREEN_HEIGHT, FPS, rectangle_draging
     refreshMath = False
+    t = 0
     
     #First time math
     controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
     matrix = makeMatrix(controlPoints)
     null_space_coeffiecients = la.null_space(matrix)
     
-    a = 0
-    b = 0
-    rot_angle = 0
-    h = 0
-    k = 0
-
     firstLoop = True
     
     while True:
@@ -247,23 +161,23 @@ def simScreen():
             controlPoints = [(point[0][0], point[0][1]) for point in POINTS] + [(POINTS[0][0][0], POINTS[0][0][1])]
             pg.draw.lines(screen, GRAY, False, controlPoints)
 
-        if DRAW_BEIZER:
-            b_points = computeBezierPoints(controlPoints, 100)
-            pg.draw.lines(screen, BLUE, False, b_points, 2)
-        
-        
+
         if refreshMath or firstLoop:
             firstLoop = False
-            controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
-            matrix = makeMatrix(controlPoints)
-            printMatrix(matrix)
-            null_space_coeffiecients = la.null_space(matrix)
-            print(null_space_coeffiecients)
-            A, B, C, D, E, F = null_space_coeffiecients
-        
-            #Daniel
-            #code the equations
+            
             try:
+                controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
+                matrix = makeMatrix(controlPoints)
+                # printMatrix(matrix)
+                null_space_coeffiecients = la.null_space(matrix)
+                # print(null_space_coeffiecients)
+                A, B, C, D, E, F = null_space_coeffiecients
+                
+                threshold = 0.0000005
+                if abs(A) < threshold or abs(B) < threshold or abs(C) < threshold or abs(D) < threshold or abs(E) < threshold or abs(F) < threshold:
+                    # print("No Solution")
+                    continue
+        
                 determinant = (B**2) - 4 * A * C
                 center_x = (((2 * C * D) - (B * E)) / determinant)[0]
                 center_y = (((2 * A * E) - (B * D)) / determinant)[0]
@@ -279,28 +193,28 @@ def simScreen():
                 
                 #cot(2𝛼)=(𝐴−𝐶/𝐵)
                 right = (A-C) / B
-                #cot(2a)=(𝐴−𝐶/𝐵)
-                
                 
                 this_a = np.arctan(1/right)/2
-                print(this_a)
                 rot_angle = 90 - (this_a * 180 / math.pi)
                 
-                # if B != 0:
-                #     rot_angle = math.atan((C[0] - A[0] - math.sqrt((A[0] - C[0])**2 + B[0]**2) / B[0]))
-                #     rot_angle = rot_angle * 180 / math.pi
-                # elif A > C:
-                #     rot_angle = 90
-                # else:
-                #     rot_angle = 0
-                    
-                    
             except:
                 print("Error")
-            
         
-        if DRAW_ELLIPSE:
-            drawRotatedEllipse(screen, BLUE, (0, 0, 2 * semi_minor, 2 * semi_major), rot_angle, (center_x, center_y))
+        
+        if DRAW_ORBIT:
+            if A == C:
+                #perfect circle 
+                drawRotatedEllipse(screen, GRAY, (center_x - semi_major, center_y - semi_major, 2 * semi_major, 2 * semi_major), 0, (center_x, center_y))
+            elif A == 0 or C == 0 and (A != 0 or C != 0):
+                #parabola
+                pass
+            elif A / abs(A) == C / abs(C):
+                #ellipse
+                
+                drawRotatedEllipse(screen, BLUE, (0, 0, 2 * semi_minor, 2 * semi_major), rot_angle%360, (center_x, center_y))
+            else: 
+                #hyperbola
+                pass
             
             #also draw the center
             # pg.draw.circle(screen, RED, (int(center_x), int(center_y)), 5)
@@ -336,19 +250,30 @@ def simScreen():
             
             equation = str(DISP_A) + "*x*x + " + str(DISP_B) + "*x*y + " + str(DISP_C) + "*y*y + " + str(DISP_D) + "*x + " + str(DISP_E) + "*y + " + str(DISP_F)
             SIM_FONT.render_to(screen, (40, 15), equation, WHITE)
-        
-        
+
         for i in range(len(POINTS)):
             if POINTS[i][1]: #currently being dragged
                 pg.draw.circle(screen, PURPLE, POINTS[i][0], POINT_RADIUS)
             else:
                 pg.draw.circle(screen, RED, POINTS[i][0], POINT_RADIUS)
-                
-                
 
-                        
+
+        if DRAW_PLANET:
+            #planet location math
+            #in terms of parametric equations with variable t
+            
+            #𝑥′=𝑥cos𝛼−𝑦sin𝛼 and 𝑦′=𝑥sin𝛼+𝑦cos𝛼.
+            center_x_before_rotation = (semi_major * math.cos(t))
+            center_y_before_rotation = (semi_minor * math.sin(t))
+            
+            planet_center_x = center_x + (center_x_before_rotation * math.cos(this_a)) - (center_y_before_rotation * math.sin(this_a))
+            planet_center_y = center_y + (center_x_before_rotation * math.sin(this_a)) + (center_y_before_rotation * math.cos(this_a))
+            
+            screen.blit(CELESTIAL_OBJECT, (planet_center_x - CELESTIAL_OBJECT.get_width()/2, planet_center_y - CELESTIAL_OBJECT.get_height()/2))
         
-        # currentInterval += 1
+            
+        
+        t += 0.01
         backgroundInputCheck(pg.event.get())
         clock.tick(FPS)
         pg.display.flip()
