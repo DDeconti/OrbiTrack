@@ -13,12 +13,14 @@
 #    https://math.stackexchange.com/questions/163920/how-to-find-an-ellipse-given-five-points 
 #    https://numpy.org/doc/stable/reference/generated/numpy.linalg.det.html#numpy.linalg.det
 #    https://en.wikipedia.org/wiki/Matrix_representation_of_conic_sections#Central_conics
+#    https://www.mathopenref.com/coordparamellipse.html 
+
+#    https://math.stackexchange.com/questions/426150/what-is-the-general-equation-of-the-ellipse-that-is-not-in-the-origin-and-rotate
 
 #----------------------END DESCRIPTION------------------#
 
 
 from cmath import pi
-from pickle import TRUE
 import pygame as pg #For graphics
 import pygame.freetype  # Import the freetype module.
 import numpy as np
