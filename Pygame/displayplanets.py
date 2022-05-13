@@ -107,11 +107,15 @@ def printMatrix(matrix):
     
 
 def drawRotatedEllipse(surface, color, rect, angle, center, width=0):
-    target_rect = pygame.Rect(rect)
-    shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
-    pygame.draw.ellipse(shape_surf, color, (0, 0, *target_rect.size), width=1)
-    rotated_surf = pygame.transform.rotate(shape_surf, angle)
-    surface.blit(rotated_surf, rotated_surf.get_rect(center = center))
+    try:
+        target_rect = pygame.Rect(rect)
+        shape_surf = pygame.Surface(target_rect.size, pygame.SRCALPHA)
+        pygame.draw.ellipse(shape_surf, color, (0, 0, *target_rect.size), width=1)
+        rotated_surf = pygame.transform.rotate(shape_surf, angle)
+        surface.blit(rotated_surf, rotated_surf.get_rect(center = center))
+    except:
+        pass
+        
 
 
 
@@ -170,11 +174,10 @@ def simScreen():
             try:
                 controlPoints = [(point[0][0], point[0][1]) for point in POINTS]
                 matrix = makeMatrix(controlPoints)
-                # printMatrix(matrix)
                 null_space_coeffiecients = la.null_space(matrix)
-                # print(null_space_coeffiecients)
                 A, B, C, D, E, F = null_space_coeffiecients
                 
+                #check to make sure we don't draw an incredibly long ellispe
                 threshold = 0.0000005
                 if abs(A) < threshold or abs(B) < threshold or abs(C) < threshold or abs(D) < threshold or abs(E) < threshold or abs(F) < threshold:
                     # print("No Solution")
@@ -199,8 +202,15 @@ def simScreen():
                 this_a = np.arctan(1/right)/2
                 rot_angle = 90 - (this_a * 180 / math.pi)
                 
+                DRAW_FILL = False
+                DRAW_ORBIT = True
+                DRAW_PLANET = True
+                
             except:
                 print("Error")
+                DRAW_FILL = True
+                DRAW_ORBIT = False
+                DRAW_PLANET = False
         
         
         if DRAW_ORBIT:
