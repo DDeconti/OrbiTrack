@@ -31,6 +31,8 @@ or by taking the null space of a 5x6 matrix of the coordinates augmented with a 
 
 ![](./res/plotting.png)
 
+We have also animated the motion of the planet in terms of "t" by applying the parametric equation (x, y) = (semi_major * cos(t), semi_minor * sin(t)), and then rotating and aligning this to the original ellispe. In the future, we have to modify the ammount which we increment t to properly reflect Kepler’s Second Law. 
+
 
 ## Future Development
 The next steps for the development of OrbiTrack include:
